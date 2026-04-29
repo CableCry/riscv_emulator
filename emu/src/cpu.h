@@ -12,6 +12,8 @@ typedef struct {
 
 void cpu_init(CPU *cpu);
 void cpu_free(CPU *cpu);
+uint32_t fetch(CPU *cpu);
+void cpu_step(CPU *cpu);
 
 
 #ifdef CPU_TEST
