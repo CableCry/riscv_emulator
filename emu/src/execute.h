@@ -6,4 +6,8 @@
 
 void execute(CPU *cpu, DecodedInstr *d);
 
+#ifdef EXECUTE_TEST
+void test_execute();
+#endif
+
 #endif

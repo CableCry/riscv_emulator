@@ -5,6 +5,17 @@
 #define MEM_TEST
 #include "mem.h"
 
+#define REG_TEST
+#include "regs.h"
+
+#define DECODE_TEST
+#include "decode.h"
+
+#define EXECUTE_TEST
+#include "execute.h"
+
+void debug_curr_instr(CPU *cpu);
+
 void test_memory() {
   Memory m;
   mem_init(&m);
@@ -19,8 +30,6 @@ void test_memory() {
   printf("Memory tests passed\n");
 }
 
-#define REG_TEST
-#include "regs.h"
 void test_registers() {
   Registers r;
   regs_init(&r);
@@ -55,8 +64,6 @@ void test_registers() {
   printf("Register tests passed\n");
 }
 
-#define DECODE_TEST
-#include "decode.h"
 bool decoded_is_equal(DecodedInstr *a, DecodedInstr *b) {
   if (a->opcode != b->opcode)
     return false;
@@ -162,9 +169,38 @@ void test_decode() {
   printf("Decode tests passed\n");
 }
 
+void test_execute() {
+  CPU cpu;
+  cpu_init(&cpu);
+
+  mem_write32(&cpu.mem, 0x00, 0x00500093); // ADDI x1, x0, 5
+  mem_write32(&cpu.mem, 0x04, 0x00A00113); // ADDI x2, x0, 10
+  mem_write32(&cpu.mem, 0x08, 0x002081B3); // ADD  x3, x1, x2
+
+  cpu_step(&cpu);
+  cpu_step(&cpu);
+  cpu_step(&cpu);
+
+  assert(read_reg(&cpu.regs, 1) == 5);
+  assert(read_reg(&cpu.regs, 2) == 10);
+  assert(read_reg(&cpu.regs, 3) == 15);
+
+  cpu_free(&cpu);
+  printf("Execute tests passed\n");
+}
+
 int main() {
   test_memory();
   test_registers();
   test_decode();
+  test_execute();
   return 0;
+}
+
+void debug_curr_instr(CPU *cpu) {
+  uint32_t raw = mem_read32(&cpu->mem, 0x08);
+  DecodedInstr d = decode(raw);
+  printf(
+      "Instr decode: opcode=0x%X rd=%d rs1=%d rs2=%d funct3=0x%X funct7=0x%X\n",
+      d.opcode, d.rd, d.rs1, d.rs2, d.funct3, d.funct7);
 }

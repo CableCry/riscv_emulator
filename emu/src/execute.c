@@ -18,7 +18,7 @@ void execute(CPU *cpu, DecodedInstr *d) {
       // SUB
       else if (d->funct7 == 0x20) {
         write_reg(&cpu->regs, d->rd,
-                  read_reg(&cpu->regs, d->rs1) + read_reg(&cpu->regs, d->rs2));
+                  read_reg(&cpu->regs, d->rs1) - read_reg(&cpu->regs, d->rs2));
       }
       break;
 
@@ -74,6 +74,41 @@ void execute(CPU *cpu, DecodedInstr *d) {
     break;
 
   case 0x13: // I-type ALU
+    switch (d->funct3) {
+    case 0x0: // ADDI
+      write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) + d->imm);
+      break;
+    case 0x1: // SLLI
+      write_reg(&cpu->regs, d->rd,
+                read_reg(&cpu->regs, d->rs1) << (d->imm & 0x1F));
+      break;
+    case 0x2: // SLTI
+      write_reg(&cpu->regs, d->rd,
+                ((int32_t)read_reg(&cpu->regs, d->rs1) < (int32_t)d->imm) ? 1
+                                                                          : 0);
+      break;
+    case 0x3: // SLTIU
+      write_reg(&cpu->regs, d->rd,
+                (read_reg(&cpu->regs, d->rs1) < (uint32_t)d->imm) ? 1 : 0);
+      break;
+    case 0x4: // XORI
+      write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) ^ d->imm);
+      break;
+    case 0x5:
+      if ((d->imm >> 10) == 0x00) // SRLI
+        write_reg(&cpu->regs, d->rd,
+                  read_reg(&cpu->regs, d->rs1) >> (d->imm & 0x1F));
+      else if ((d->imm >> 10) == 0x01) // SRAI
+        write_reg(&cpu->regs, d->rd,
+                  (int32_t)read_reg(&cpu->regs, d->rs1) >> (d->imm & 0x1F));
+      break;
+    case 0x6: // ORI
+      write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) | d->imm);
+      break;
+    case 0x7: // ANDI
+      write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) & d->imm);
+      break;
+    }
     break;
 
   case 0x03: // Loads
