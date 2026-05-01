@@ -173,17 +173,317 @@ void test_execute() {
   CPU cpu;
   cpu_init(&cpu);
 
-  mem_write32(&cpu.mem, 0x00, 0x00500093); // ADDI x1, x0, 5
-  mem_write32(&cpu.mem, 0x04, 0x00A00113); // ADDI x2, x0, 10
-  mem_write32(&cpu.mem, 0x08, 0x002081B3); // ADD  x3, x1, x2
+  // R-type ALU instructions: ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
+  write_reg(&cpu.regs, 1, 12);
+  write_reg(&cpu.regs, 2, 3);
+  write_reg(&cpu.regs, 3, 0x80000000);
+  write_reg(&cpu.regs, 4, 1);
 
-  cpu_step(&cpu);
-  cpu_step(&cpu);
-  cpu_step(&cpu);
+  // ADD x5 = x1 + x2 = 12 + 3 = 15
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 5,
+                                .funct3 = 0x0,
+                                .rs1 = 1,
+                                .rs2 = 2,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 5) == 15);
 
-  assert(read_reg(&cpu.regs, 1) == 5);
-  assert(read_reg(&cpu.regs, 2) == 10);
-  assert(read_reg(&cpu.regs, 3) == 15);
+  // SUB x6 = x1 - x2 = 12 - 3 = 9
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 6,
+                                .funct3 = 0x0,
+                                .rs1 = 1,
+                                .rs2 = 2,
+                                .funct7 = 0x20,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 6) == 9);
+
+  // SLL x7 = x2 << x4 = 3 << 1 = 6
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 7,
+                                .funct3 = 0x1,
+                                .rs1 = 2,
+                                .rs2 = 4,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 7) == 6);
+
+  // SLT x8 = (x3 < x4) signed = (0x80000000 < 1) = 1 (negative < positive)
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 8,
+                                .funct3 = 0x2,
+                                .rs1 = 3,
+                                .rs2 = 4,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 8) == 1);
+
+  // SLTU x9 = (x3 < x4) unsigned = (0x80000000 < 1) = 0 (large unsigned > 1)
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 9,
+                                .funct3 = 0x3,
+                                .rs1 = 3,
+                                .rs2 = 4,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 9) == 0);
+
+  // XOR x10 = x1 ^ x2 = 12 ^ 3 = 15
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 10,
+                                .funct3 = 0x4,
+                                .rs1 = 1,
+                                .rs2 = 2,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 10) == 15);
+
+  // SRL x11 = x1 >> x4 = 12 >> 1 = 6
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 11,
+                                .funct3 = 0x5,
+                                .rs1 = 1,
+                                .rs2 = 4,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 11) == 6);
+
+  // SRA x12 = x3 >> x4 = 0x80000000 >> 1 = 0xC0000000 (sign bit preserved)
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 12,
+                                .funct3 = 0x5,
+                                .rs1 = 3,
+                                .rs2 = 4,
+                                .funct7 = 0x20,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 12) == 0xC0000000);
+
+  // OR x13 = x1 | x2 = 12 | 3 = 15
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 13,
+                                .funct3 = 0x6,
+                                .rs1 = 1,
+                                .rs2 = 2,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 13) == 15);
+
+  // AND x14 = x1 & x2 = 12 & 3 = 0
+  execute(&cpu, &(DecodedInstr){.opcode = 0x33,
+                                .rd = 14,
+                                .funct3 = 0x7,
+                                .rs1 = 1,
+                                .rs2 = 2,
+                                .funct7 = 0x00,
+                                .imm = 0});
+  assert(read_reg(&cpu.regs, 14) == 0);
+
+  // I-type ALU: ADDI, SLLI, SLTI, SLTIU, XORI, SRLI, SRAI, ORI, ANDI
+
+  // ADDI x15 = x1 + 5 = 0 + 5 = 5
+  write_reg(&cpu.regs, 1, 0);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 15, .funct3 = 0x0, .rs1 = 1, .imm = 5});
+  assert(read_reg(&cpu.regs, 15) == 5);
+
+  // SLLI x16 = x1 << 4 = 1 << 4 = 16
+  write_reg(&cpu.regs, 1, 1);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 16, .funct3 = 0x1, .rs1 = 1, .imm = 4});
+  assert(read_reg(&cpu.regs, 16) == 16);
+
+  // SLTI x17 = (x1 < 0) signed = (0xFFFFFFFF < 0) = 1 (-1 < 0)
+  write_reg(&cpu.regs, 1, 0xFFFFFFFF);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 17, .funct3 = 0x2, .rs1 = 1, .imm = 0});
+  assert(read_reg(&cpu.regs, 17) == 1);
+
+  // SLTIU x18 = (x1 < 1) unsigned = (0 < 1) = 1
+  write_reg(&cpu.regs, 1, 0);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 18, .funct3 = 0x3, .rs1 = 1, .imm = 1});
+  assert(read_reg(&cpu.regs, 18) == 1);
+
+  // XORI x19 = x1 ^ 0x55 = 0xAA ^ 0x55 = 0xFF
+  write_reg(&cpu.regs, 1, 0xAA);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 19, .funct3 = 0x4, .rs1 = 1, .imm = 0x55});
+  assert(read_reg(&cpu.regs, 19) == 0xFF);
+
+  // SRLI x20 = x1 >> 3 = 0x80 >> 3 = 0x10
+  write_reg(&cpu.regs, 1, 0x80);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 20, .funct3 = 0x5, .rs1 = 1, .imm = 3});
+  assert(read_reg(&cpu.regs, 20) == 0x10);
+
+  // SRAI x21 = x1 >> 3 = 0x80000000 >> 3 = 0xF0000000 (sign extended)
+  write_reg(&cpu.regs, 1, 0x80000000);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 21, .funct3 = 0x5, .rs1 = 1, .imm = 0x403});
+  assert(read_reg(&cpu.regs, 21) == 0xF0000000);
+
+  // ORI x22 = x1 | 0x0F = 0x50 | 0x0F = 0x5F
+  write_reg(&cpu.regs, 1, 0x50);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 22, .funct3 = 0x6, .rs1 = 1, .imm = 0x0F});
+  assert(read_reg(&cpu.regs, 22) == 0x5F);
+
+  // ANDI x23 = x1 & 0x0F = 0xF0 & 0x0F = 0x00
+  write_reg(&cpu.regs, 1, 0xF0);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x13, .rd = 23, .funct3 = 0x7, .rs1 = 1, .imm = 0x0F});
+  assert(read_reg(&cpu.regs, 23) == 0x00);
+
+  // Loads: LB, LH, LW, LBU, LHU
+  // memory at 0x100: 01 7F FF 80 (little endian: 0x80FF7F01)
+  mem_write32(&cpu.mem, 0x100, 0x80FF7F01);
+  write_reg(&cpu.regs, 1, 0x100);
+
+  // LB x24 = mem[0x100 + 0] = 0x01 sign extended = 0x00000001
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x03, .rd = 24, .funct3 = 0x0, .rs1 = 1, .imm = 0});
+  assert(read_reg(&cpu.regs, 24) == 0x00000001);
+
+  // LB x25 = mem[0x100 + 3] = 0x80 sign extended = 0xFFFFFF80
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x03, .rd = 25, .funct3 = 0x0, .rs1 = 1, .imm = 3});
+  assert(read_reg(&cpu.regs, 25) == 0xFFFFFF80);
+
+  // LH x26 = mem[0x100 + 2] = 0x80FF sign extended = 0xFFFF80FF
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x03, .rd = 26, .funct3 = 0x1, .rs1 = 1, .imm = 2});
+  assert(read_reg(&cpu.regs, 26) == 0xFFFF80FF);
+
+  // LW x27 = mem[0x100 + 0] = 0x80FF7F01
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x03, .rd = 27, .funct3 = 0x2, .rs1 = 1, .imm = 0});
+  assert(read_reg(&cpu.regs, 27) == 0x80FF7F01);
+
+  // LBU x28 = mem[0x100 + 3] = 0x80 zero extended = 0x00000080
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x03, .rd = 28, .funct3 = 0x4, .rs1 = 1, .imm = 3});
+  assert(read_reg(&cpu.regs, 28) == 0x00000080);
+
+  // LHU x29 = mem[0x100 + 2] = 0x80FF zero extended = 0x000080FF
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x03, .rd = 29, .funct3 = 0x5, .rs1 = 1, .imm = 2});
+  assert(read_reg(&cpu.regs, 29) == 0x000080FF);
+
+  // Stores: SB, SH, SW
+  write_reg(&cpu.regs, 2, 0x200);
+  write_reg(&cpu.regs, 3, 0xAABBCCDD);
+
+  // SB mem[0x200 + 1] = low byte of x3 = 0xDD
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x23, .funct3 = 0x0, .rs1 = 2, .rs2 = 3, .imm = 1});
+  assert(mem_read8(&cpu.mem, 0x201) == 0xDD);
+
+  // SH mem[0x200 + 2] = low halfword of x3 = 0xBEEF
+  write_reg(&cpu.regs, 3, 0xBEEF);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x23, .funct3 = 0x1, .rs1 = 2, .rs2 = 3, .imm = 2});
+  assert(mem_read16(&cpu.mem, 0x202) == 0xBEEF);
+
+  // SW mem[0x200 + 4] = x3 = 0xCAFEBABE
+  write_reg(&cpu.regs, 3, 0xCAFEBABE);
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x23, .funct3 = 0x2, .rs1 = 2, .rs2 = 3, .imm = 4});
+  assert(mem_read32(&cpu.mem, 0x204) == 0xCAFEBABE);
+
+  // Branches: BEQ, BNE, BLT, BGE, BLTU, BGEU
+  write_reg(&cpu.regs, 1, 10);
+  write_reg(&cpu.regs, 2, 10);
+  write_reg(&cpu.regs, 3, 5);
+
+  // BEQ taken: x1 == x2, pc should advance by imm - 4
+  cpu.pc = 0x100;
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x63, .funct3 = 0x0, .rs1 = 1, .rs2 = 2, .imm = 8});
+  assert(cpu.pc == 0x104);
+
+  // BEQ not taken: x1 != x3, pc unchanged
+  cpu.pc = 0x100;
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x63, .funct3 = 0x0, .rs1 = 1, .rs2 = 3, .imm = 8});
+  assert(cpu.pc == 0x100);
+
+  // BNE taken: x1 != x3
+  cpu.pc = 0x100;
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x63, .funct3 = 0x1, .rs1 = 1, .rs2 = 3, .imm = 8});
+  assert(cpu.pc == 0x104);
+
+  // BLT taken: x3 < x1 signed = 5 < 10
+  cpu.pc = 0x100;
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x63, .funct3 = 0x4, .rs1 = 3, .rs2 = 1, .imm = 8});
+  assert(cpu.pc == 0x104);
+
+  // BGE taken: x1 >= x3 = 10 >= 5
+  cpu.pc = 0x100;
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x63, .funct3 = 0x5, .rs1 = 1, .rs2 = 3, .imm = 8});
+  assert(cpu.pc == 0x104);
+
+  // BLTU taken: x3 < x1 unsigned
+  cpu.pc = 0x100;
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x63, .funct3 = 0x6, .rs1 = 3, .rs2 = 1, .imm = 8});
+  assert(cpu.pc == 0x104);
+
+  // BGEU taken: x1 >= x3 unsigned
+  cpu.pc = 0x100;
+  execute(&cpu,
+          &(DecodedInstr){
+              .opcode = 0x63, .funct3 = 0x7, .rs1 = 1, .rs2 = 3, .imm = 8});
+  assert(cpu.pc == 0x104);
+
+  // LUI x31 = 0x12000
+  execute(&cpu, &(DecodedInstr){.opcode = 0x37, .rd = 31, .imm = 0x12000});
+  assert(read_reg(&cpu.regs, 31) == 0x12000);
+
+  // AUIPC x29 = pc - 4 + 0x12000
+  cpu.pc = 0x100;
+  execute(&cpu, &(DecodedInstr){.opcode = 0x17, .rd = 29, .imm = 0x12000});
+  assert(read_reg(&cpu.regs, 29) == 0x100 - 4 + 0x12000);
+
+  // JAL x28 = pc, then jump by imm - 4
+  cpu.pc = 0x100;
+  execute(&cpu, &(DecodedInstr){.opcode = 0x6F, .rd = 28, .imm = 8});
+  assert(read_reg(&cpu.regs, 28) == 0x100);
+  assert(cpu.pc == 0x104);
+
+  // JALR x27 = pc, then jump to (rs1 + imm) & ~1
+  cpu.pc = 0x100;
+  write_reg(&cpu.regs, 1, 0x200);
+  execute(&cpu, &(DecodedInstr){.opcode = 0x67, .rd = 27, .rs1 = 1, .imm = 4});
+  assert(read_reg(&cpu.regs, 27) == 0x100);
+  assert(cpu.pc == ((0x200 + 4) & ~1));
 
   cpu_free(&cpu);
   printf("Execute tests passed\n");

@@ -73,63 +73,148 @@ void execute(CPU *cpu, DecodedInstr *d) {
     }
     break;
 
-  case 0x13: // I-type ALU
+  case 0x13: // I-type ALU — opcode 0x13
     switch (d->funct3) {
-    case 0x0: // ADDI
+
+    case 0x0: // ADDI — rd = rs1 + imm
       write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) + d->imm);
       break;
-    case 0x1: // SLLI
+
+    case 0x1: // SLLI — rd = rs1 << imm[4:0]
       write_reg(&cpu->regs, d->rd,
                 read_reg(&cpu->regs, d->rs1) << (d->imm & 0x1F));
       break;
-    case 0x2: // SLTI
+
+    case 0x2: // SLTI — rd = (rs1 < imm) signed ? 1 : 0
       write_reg(&cpu->regs, d->rd,
-                ((int32_t)read_reg(&cpu->regs, d->rs1) < (int32_t)d->imm) ? 1
-                                                                          : 0);
+                (int32_t)read_reg(&cpu->regs, d->rs1) < (int32_t)d->imm ? 1
+                                                                        : 0);
       break;
-    case 0x3: // SLTIU
+
+    case 0x3: // SLTIU — rd = (rs1 < imm) unsigned ? 1 : 0
       write_reg(&cpu->regs, d->rd,
-                (read_reg(&cpu->regs, d->rs1) < (uint32_t)d->imm) ? 1 : 0);
+                read_reg(&cpu->regs, d->rs1) < (uint32_t)d->imm ? 1 : 0);
       break;
-    case 0x4: // XORI
+
+    case 0x4: // XORI — rd = rs1 ^ imm
       write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) ^ d->imm);
       break;
-    case 0x5:
-      if ((d->imm >> 10) == 0x00) // SRLI
+
+    case 0x5: // SRLI / SRAI — distinguished by imm bit 10
+      if ((d->imm & 0x400) == 0)
+        // SRLI — rd = rs1 >> imm[4:0], zero fill
         write_reg(&cpu->regs, d->rd,
                   read_reg(&cpu->regs, d->rs1) >> (d->imm & 0x1F));
-      else if ((d->imm >> 10) == 0x01) // SRAI
+      else
+        // SRAI — rd = rs1 >> imm[4:0], sign fill
         write_reg(&cpu->regs, d->rd,
                   (int32_t)read_reg(&cpu->regs, d->rs1) >> (d->imm & 0x1F));
       break;
-    case 0x6: // ORI
+
+    case 0x6: // ORI — rd = rs1 | imm
       write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) | d->imm);
       break;
-    case 0x7: // ANDI
+
+    case 0x7: // ANDI — rd = rs1 & imm
       write_reg(&cpu->regs, d->rd, read_reg(&cpu->regs, d->rs1) & d->imm);
       break;
     }
     break;
 
   case 0x03: // Loads
+    switch (d->funct3) {
+    case 0x0: // LB - load byte, sign extended
+      write_reg(&cpu->regs, d->rd,
+                (int32_t)(int8_t)mem_read8(
+                    &cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm));
+      break;
+    case 0x1: // LH - load halfword, sign extended
+      write_reg(&cpu->regs, d->rd,
+                (int32_t)(int16_t)mem_read16(
+                    &cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm));
+      break;
+    case 0x2: // LW - load word
+      write_reg(&cpu->regs, d->rd,
+                mem_read32(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm));
+      break;
+    case 0x4: // LBU - load byte, zero extended
+      write_reg(&cpu->regs, d->rd,
+                (uint32_t)mem_read8(&cpu->mem,
+                                    read_reg(&cpu->regs, d->rs1) + d->imm));
+      break;
+    case 0x5: // LHU - load halfword, zero extended
+      write_reg(&cpu->regs, d->rd,
+                (uint32_t)mem_read16(&cpu->mem,
+                                     read_reg(&cpu->regs, d->rs1) + d->imm));
+      break;
+    }
+
     break;
 
   case 0x23: // Stores
+    switch (d->funct3) {
+    case 0x0: // SB - store byte
+      mem_write8(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm,
+                 (uint8_t)read_reg(&cpu->regs, d->rs2));
+      break;
+    case 0x1: // SH - store halfword
+      mem_write16(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm,
+                  (uint16_t)read_reg(&cpu->regs, d->rs2));
+      break;
+    case 0x2: // SW - store word
+      mem_write32(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm,
+                  read_reg(&cpu->regs, d->rs2));
+      break;
+    }
     break;
 
   case 0x63: // Branches
+    switch (d->funct3) {
+    case 0x0: // BEQ - branch if equal
+      if (read_reg(&cpu->regs, d->rs1) == read_reg(&cpu->regs, d->rs2))
+        cpu->pc += d->imm - 4;
+      break;
+    case 0x1: // BNE - branch if not equal
+      if (read_reg(&cpu->regs, d->rs1) != read_reg(&cpu->regs, d->rs2))
+        cpu->pc += d->imm - 4;
+      break;
+    case 0x4: // BLT - branch if less than (signed)
+      if ((int32_t)read_reg(&cpu->regs, d->rs1) <
+          (int32_t)read_reg(&cpu->regs, d->rs2))
+        cpu->pc += d->imm - 4;
+      break;
+    case 0x5: // BGE - branch if greater or equal (signed)
+      if ((int32_t)read_reg(&cpu->regs, d->rs1) >=
+          (int32_t)read_reg(&cpu->regs, d->rs2))
+        cpu->pc += d->imm - 4;
+      break;
+    case 0x6: // BLTU - branch if less than (unsigned)
+      if (read_reg(&cpu->regs, d->rs1) < read_reg(&cpu->regs, d->rs2))
+        cpu->pc += d->imm - 4;
+      break;
+    case 0x7: // BGEU - branch if greater or equal (unsigned)
+      if (read_reg(&cpu->regs, d->rs1) >= read_reg(&cpu->regs, d->rs2))
+        cpu->pc += d->imm - 4;
+      break;
+    }
     break;
 
-  case 0x37: // LUI
+  case 0x37: // LUI - load upper immediate
+    write_reg(&cpu->regs, d->rd, d->imm);
     break;
 
-  case 0x17: // AUIPC
+  case 0x17: // AUIPC - add upper immediate to pc
+    write_reg(&cpu->regs, d->rd, cpu->pc - 4 + d->imm);
     break;
 
-  case 0x6F: // JAL
+  case 0x6F: // JAL - jump and link
+    write_reg(&cpu->regs, d->rd, cpu->pc);
+    cpu->pc += d->imm - 4;
     break;
 
-  case 0x67: // JALR
+  case 0x67: // JALR - jump and link register
+    write_reg(&cpu->regs, d->rd, cpu->pc);
+    cpu->pc = (read_reg(&cpu->regs, d->rs1) + d->imm) & ~1;
     break;
 
   default:
