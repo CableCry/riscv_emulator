@@ -217,8 +217,20 @@ void execute(CPU *cpu, DecodedInstr *d) {
     cpu->pc = (read_reg(&cpu->regs, d->rs1) + d->imm) & ~1;
     break;
 
+  case 0x73: // SYSTEM
+    switch (d->funct3) {
+    case 0x0:
+      if (d->imm == 0x0) // ECALL
+        cpu->trap = TRAP_ECALL;
+      else if (d->imm == 0x1) // EBREAK
+        cpu->trap = TRAP_EBREAK;
+      break;
+    }
+    break;
+
   default:
-    printf("Unknown opcode: 0x%02X at pc=0x%08X\n", d->opcode, cpu->pc);
+    cpu->trap = TRAP_ILLEGAL_INSTR;
+    cpu->trap_val = cpu->pc - 4;
     break;
   }
 }
