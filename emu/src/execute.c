@@ -126,25 +126,25 @@ void execute(CPU *cpu, DecodedInstr *d) {
     case 0x0: // LB - load byte, sign extended
       write_reg(&cpu->regs, d->rd,
                 (int32_t)(int8_t)mem_read8(
-                    &cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm));
+                    cpu, read_reg(&cpu->regs, d->rs1) + d->imm));
       break;
     case 0x1: // LH - load halfword, sign extended
       write_reg(&cpu->regs, d->rd,
                 (int32_t)(int16_t)mem_read16(
-                    &cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm));
+                    cpu, read_reg(&cpu->regs, d->rs1) + d->imm));
       break;
     case 0x2: // LW - load word
       write_reg(&cpu->regs, d->rd,
-                mem_read32(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm));
+                mem_read32(cpu, read_reg(&cpu->regs, d->rs1) + d->imm));
       break;
     case 0x4: // LBU - load byte, zero extended
       write_reg(&cpu->regs, d->rd,
-                (uint32_t)mem_read8(&cpu->mem,
+                (uint32_t)mem_read8(cpu,
                                     read_reg(&cpu->regs, d->rs1) + d->imm));
       break;
     case 0x5: // LHU - load halfword, zero extended
       write_reg(&cpu->regs, d->rd,
-                (uint32_t)mem_read16(&cpu->mem,
+                (uint32_t)mem_read16(cpu,
                                      read_reg(&cpu->regs, d->rs1) + d->imm));
       break;
     }
@@ -154,15 +154,15 @@ void execute(CPU *cpu, DecodedInstr *d) {
   case 0x23: // Stores
     switch (d->funct3) {
     case 0x0: // SB - store byte
-      mem_write8(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm,
+      mem_write8(cpu, read_reg(&cpu->regs, d->rs1) + d->imm,
                  (uint8_t)read_reg(&cpu->regs, d->rs2));
       break;
     case 0x1: // SH - store halfword
-      mem_write16(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm,
+      mem_write16(cpu, read_reg(&cpu->regs, d->rs1) + d->imm,
                   (uint16_t)read_reg(&cpu->regs, d->rs2));
       break;
     case 0x2: // SW - store word
-      mem_write32(&cpu->mem, read_reg(&cpu->regs, d->rs1) + d->imm,
+      mem_write32(cpu, read_reg(&cpu->regs, d->rs1) + d->imm,
                   read_reg(&cpu->regs, d->rs2));
       break;
     }

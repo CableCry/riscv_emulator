@@ -2,9 +2,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define MEM_TEST
-#include "mem.h"
-
 #define REG_TEST
 #include "regs.h"
 
@@ -26,11 +23,11 @@ void test_memory() {
     CPU cpu;
     cpu_init(&cpu);
 
-    mem_write32(&cpu.mem, &cpu, 0x00, 0xDEADBEEF);
-    assert(mem_read32(&cpu.mem, &cpu, 0x00) == 0xDEADBEEF);
-    assert(mem_read8(&cpu.mem,  &cpu, 0x00) == 0xEF);
-    assert(mem_read8(&cpu.mem,  &cpu, 0x01) == 0xBE);
-    assert(mem_read16(&cpu.mem, &cpu, 0x00) == 0xBEEF);
+    mem_write32(&cpu, 0x00, 0xDEADBEEF);
+    assert(mem_read32(&cpu, 0x00) == 0xDEADBEEF);
+    assert(mem_read8(&cpu, 0x00) == 0xEF);
+    assert(mem_read8(&cpu, 0x01) == 0xBE);
+    assert(mem_read16(&cpu, 0x00) == 0xBEEF);
 
     cpu_free(&cpu);
     printf("Memory tests passed\n");
@@ -289,7 +286,7 @@ void test_execute() {
 
     // Loads: LB, LH, LW, LBU, LHU
     // memory at 0x100: 01 7F FF 80 (little endian: 0x80FF7F01)
-    mem_write32(&cpu.mem, &cpu, 0x100, 0x80FF7F01);
+    mem_write32(&cpu, 0x100, 0x80FF7F01);
     write_reg(&cpu.regs, 1, 0x100);
 
     // LB x24 = mem[0x100 + 0] = 0x01 sign extended = 0x00000001
@@ -329,19 +326,19 @@ void test_execute() {
     // SB mem[0x200 + 1] = low byte of x3 = 0xDD
     execute(&cpu, &(DecodedInstr){.opcode = 0x23, .funct3 = 0x0,
                                   .rs1 = 2, .rs2 = 3, .imm = 1});
-    assert(mem_read8(&cpu.mem, &cpu, 0x201) == 0xDD);
+    assert(mem_read8(&cpu, 0x201) == 0xDD);
 
     // SH mem[0x200 + 2] = low halfword of x3 = 0xBEEF
     write_reg(&cpu.regs, 3, 0xBEEF);
     execute(&cpu, &(DecodedInstr){.opcode = 0x23, .funct3 = 0x1,
                                   .rs1 = 2, .rs2 = 3, .imm = 2});
-    assert(mem_read16(&cpu.mem, &cpu, 0x202) == 0xBEEF);
+    assert(mem_read16(&cpu, 0x202) == 0xBEEF);
 
     // SW mem[0x200 + 4] = x3 = 0xCAFEBABE
     write_reg(&cpu.regs, 3, 0xCAFEBABE);
     execute(&cpu, &(DecodedInstr){.opcode = 0x23, .funct3 = 0x2,
                                   .rs1 = 2, .rs2 = 3, .imm = 4});
-    assert(mem_read32(&cpu.mem, &cpu, 0x204) == 0xCAFEBABE);
+    assert(mem_read32(&cpu, 0x204) == 0xCAFEBABE);
 
     // Branches: BEQ, BNE, BLT, BGE, BLTU, BGEU
     write_reg(&cpu.regs, 1, 10);
@@ -424,9 +421,8 @@ void test_elf_loader() {
     assert(result == ELF_OK);
     printf("Entry point: 0x%08X\n", cpu.pc);
 
-    // set stack pointer to top of memory, return address to sentinel
     write_reg(&cpu.regs, 2, cpu.mem.size - 4);
-    write_reg(&cpu.regs, 1, 0xDEADBEEF);
+    write_reg(&cpu.regs, 1, 0x0);
 
     int cycles = 0;
     while (cpu.trap == TRAP_NONE && cycles < 10000) {
@@ -456,7 +452,7 @@ int main() {
 }
 
 void debug_curr_instr(CPU *cpu) {
-    uint32_t raw = mem_read32(&cpu->mem, cpu, cpu->pc);
+    uint32_t raw = mem_read32(cpu, cpu->pc);
     DecodedInstr d = decode(raw);
     printf("Instr decode: opcode=0x%X rd=%d rs1=%d rs2=%d funct3=0x%X funct7=0x%X\n",
         d.opcode, d.rd, d.rs1, d.rs2, d.funct3, d.funct7);
