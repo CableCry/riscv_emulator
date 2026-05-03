@@ -35,6 +35,9 @@ DecodedInstr decode(uint32_t instr) {
     d.imm = ((int32_t)(instr & 0x80000000) >> 11) | (instr & 0xFF000) |
             ((instr >> 9) & 0x800) | ((instr >> 20) & 0x7FE);
     break;
+  case 0x73: // I-type (ECALL/EBREAK — imm holds the syscall selector)
+    d.imm = (int32_t)instr >> 20;
+    break;
   default:
     d.opcode = 0xFF;
     break;
