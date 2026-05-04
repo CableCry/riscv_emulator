@@ -60,3 +60,28 @@ void wasm_load_bytes(uint32_t addr, uint8_t *bytes, int len) {
     mem_write8(&cpu, addr + i, bytes[i]);
   }
 }
+
+// ── Back-step / history support ──────────────────────────────────────────────
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_set_pc(uint32_t pc) { cpu.pc = pc; }
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_set_all_regs(uint32_t *regs) {
+  for (int i = 0; i < 32; i++)
+    write_reg(&cpu.regs, i, regs[i]);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_clear_trap() {
+  cpu.trap     = TRAP_NONE;
+  cpu.trap_val = 0;
+}
+
+// ── Inline assembler / breakpoint memory writes ───────────────────────────────
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_write_mem8(uint32_t addr, uint8_t val) { mem_write8(&cpu, addr, val); }
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_write_mem32(uint32_t addr, uint32_t val) { mem_write32(&cpu, addr, val); }

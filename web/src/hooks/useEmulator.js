@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { parseElf32, encodeJal, ECALL_WORD } from '../lib/elfLoader.js';
+import { parseElf32, encodeJal, encodeLui, ECALL_WORD, MEM_SIZE } from '../lib/elfLoader.js';
+
+const HISTORY_MAX = 64;
 
 // Loads the Emscripten module once and returns it
 let modulePromise = null;
@@ -77,6 +79,11 @@ export function useEmulator() {
     return mod ? mod._wasm_is_halted() !== 0 : true;
   }, []);
 
+  const getPCNow = useCallback(() => {
+    const mod = modRef.current;
+    return mod ? mod._wasm_get_pc() >>> 0 : 0;
+  }, []);
+
   const run = useCallback((limit) => {
     const mod = modRef.current;
     if (!mod) return;
@@ -105,9 +112,10 @@ export function useEmulator() {
 
   // Load an ELF32 file: parse segments in JS, load each via wasm_load_bytes,
   // then write a JAL trampoline at 0x0 if the entry point is not 0.
+  // Returns { isElf, symbols } where symbols is a Map<addr, name>.
   const loadElf = useCallback((uint8Array) => {
     const mod = modRef.current;
-    if (!mod) return false;
+    if (!mod) return { isElf: false, symbols: new Map() };
     mod._wasm_free();
     mod._wasm_init();
 
@@ -118,7 +126,7 @@ export function useEmulator() {
       mod.HEAPU8.set(uint8Array, ptr);
       mod._wasm_load_bytes(0, ptr, uint8Array.length);
       mod._free(ptr);
-      return false;
+      return { isElf: false, symbols: new Map() };
     }
 
     for (const seg of elf.segments) {
@@ -128,22 +136,55 @@ export function useEmulator() {
       mod._free(ptr);
     }
 
-    // Write a minimal _start stub at 0x0 so main() returns cleanly:
-    //   [0x0] JAL ra, entry  — ra = 4, PC = entry
-    //   [0x4] ECALL          — traps when main() returns to ra=4
+    // Write a _start stub at 0x0 so main() has a valid stack and returns cleanly:
+    //   [0x0] LUI  sp, MEM_SIZE>>12  — sp = top of memory (stack grows down from here)
+    //   [0x4] JAL  ra, entry         — ra = 8, PC = entry
+    //   [0x8] ECALL                  — traps when main() returns to ra=8
     if (elf.entry !== 0) {
-      const stub = new Uint8Array(8);
+      const stub = new Uint8Array(12);
       const dv = new DataView(stub.buffer);
-      dv.setUint32(0, encodeJal(1, elf.entry), true); // JAL ra (x1), offset
-      dv.setUint32(4, ECALL_WORD, true);               // ECALL
-      const ptr = mod._malloc(8);
+      dv.setUint32(0, encodeLui(2, MEM_SIZE >>> 12), true); // LUI sp (x2), 0x100
+      dv.setUint32(4, encodeJal(1, elf.entry - 4),   true); // JAL ra (x1), offset from 0x4
+      dv.setUint32(8, ECALL_WORD,                     true); // ECALL
+      const ptr = mod._malloc(12);
       mod.HEAPU8.set(stub, ptr);
-      mod._wasm_load_bytes(0, ptr, 8);
+      mod._wasm_load_bytes(0, ptr, 12);
       mod._free(ptr);
     }
 
-    return true;
+    return { isElf: true, symbols: elf.symbols ?? new Map() };
   }, []);
 
-  return { ready, error, getState, step, isHaltedNow, run, reset, loadBinary, loadElf };
+  // ── Back-step: restore pc + registers + clear trap ────────────────────────
+  const setPC = useCallback((pc) => {
+    const mod = modRef.current;
+    if (mod) mod._wasm_set_pc(pc >>> 0);
+  }, []);
+
+  const setRegisters = useCallback((regsArray) => {
+    const mod = modRef.current;
+    if (!mod) return;
+    const ptr = mod._malloc(32 * 4);
+    const view = new Uint32Array(mod.HEAPU8.buffer, ptr, 32);
+    for (let i = 0; i < 32; i++) view[i] = regsArray[i] >>> 0;
+    mod._wasm_set_all_regs(ptr);
+    mod._free(ptr);
+  }, []);
+
+  const clearTrap = useCallback(() => {
+    const mod = modRef.current;
+    if (mod) mod._wasm_clear_trap();
+  }, []);
+
+  const writeMem32 = useCallback((addr, val) => {
+    const mod = modRef.current;
+    if (mod) mod._wasm_write_mem32(addr >>> 0, val >>> 0);
+  }, []);
+
+  return {
+    ready, error,
+    getState, step, isHaltedNow, getPCNow, run, reset,
+    loadBinary, loadElf,
+    setPC, setRegisters, clearTrap, writeMem32,
+  };
 }

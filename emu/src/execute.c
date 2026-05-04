@@ -6,7 +6,60 @@
 void execute(CPU *cpu, DecodedInstr *d) {
   switch (d->opcode) {
 
-  case 0x33: // R-type
+  case 0x33: // R-type (RV32I) or RV32M (funct7 == 0x01)
+    if (d->funct7 == 0x01) {
+      // ── RV32M multiply/divide extension ──────────────────────────────
+      int32_t  s1 = (int32_t)read_reg(&cpu->regs, d->rs1);
+      int32_t  s2 = (int32_t)read_reg(&cpu->regs, d->rs2);
+      uint32_t u1 =           read_reg(&cpu->regs, d->rs1);
+      uint32_t u2 =           read_reg(&cpu->regs, d->rs2);
+      switch (d->funct3) {
+      case 0x0: // MUL — lower 32 bits of s1 × s2
+        write_reg(&cpu->regs, d->rd, (uint32_t)(s1 * s2));
+        break;
+      case 0x1: // MULH — upper 32 bits of signed × signed
+        write_reg(&cpu->regs, d->rd,
+                  (uint32_t)(((int64_t)s1 * (int64_t)s2) >> 32));
+        break;
+      case 0x2: // MULHSU — upper 32 bits of signed × unsigned
+        write_reg(&cpu->regs, d->rd,
+                  (uint32_t)(((int64_t)s1 * (uint64_t)u2) >> 32));
+        break;
+      case 0x3: // MULHU — upper 32 bits of unsigned × unsigned
+        write_reg(&cpu->regs, d->rd,
+                  (uint32_t)(((uint64_t)u1 * (uint64_t)u2) >> 32));
+        break;
+      case 0x4: // DIV — signed division (div-by-zero → -1)
+        if (s2 == 0)
+          write_reg(&cpu->regs, d->rd, (uint32_t)-1);
+        else if (s1 == (int32_t)0x80000000 && s2 == -1)
+          write_reg(&cpu->regs, d->rd, (uint32_t)0x80000000); // overflow
+        else
+          write_reg(&cpu->regs, d->rd, (uint32_t)(s1 / s2));
+        break;
+      case 0x5: // DIVU — unsigned division (div-by-zero → 0xFFFFFFFF)
+        if (u2 == 0)
+          write_reg(&cpu->regs, d->rd, 0xFFFFFFFFu);
+        else
+          write_reg(&cpu->regs, d->rd, u1 / u2);
+        break;
+      case 0x6: // REM — signed remainder (rem-by-zero → dividend)
+        if (s2 == 0)
+          write_reg(&cpu->regs, d->rd, u1);
+        else if (s1 == (int32_t)0x80000000 && s2 == -1)
+          write_reg(&cpu->regs, d->rd, 0);
+        else
+          write_reg(&cpu->regs, d->rd, (uint32_t)(s1 % s2));
+        break;
+      case 0x7: // REMU — unsigned remainder (rem-by-zero → dividend)
+        if (u2 == 0)
+          write_reg(&cpu->regs, d->rd, u1);
+        else
+          write_reg(&cpu->regs, d->rd, u1 % u2);
+        break;
+      }
+    } else {
+    // ── RV32I base integer register operations ────────────────────────
     switch (d->funct3) {
 
     case 0x0: // ADD / SUB
@@ -71,6 +124,7 @@ void execute(CPU *cpu, DecodedInstr *d) {
                 read_reg(&cpu->regs, d->rs1) & read_reg(&cpu->regs, d->rs2));
       break;
     }
+    } // end RV32I R-type
     break;
 
   case 0x13: // I-type ALU — opcode 0x13

@@ -1,7 +1,10 @@
 import { useState } from 'react';
 
-export function ControlsCell({ isHalted, animating, isRunning, cpuState, onStep, onRunN, onRun, onStop, onPause, onReset }) {
-  const [runN, setRunN] = useState(10);
+export function ControlsCell({
+  isHalted, animating, isRunning, cpuState,
+  canBackStep,
+  onStep, onBackStep, onRun, onStop, onReset, onOpenAssembler,
+}) {
   const blocked = isHalted || animating || isRunning;
 
   return (
@@ -25,24 +28,19 @@ export function ControlsCell({ isHalted, animating, isRunning, cpuState, onStep,
       <div className="cell-body" style={{ flexDirection: 'row', padding: '0 14px' }}>
         <div className="controls-body">
 
+          {/* Back-step */}
+          <button
+            className="ctrl-btn secondary"
+            onClick={onBackStep}
+            disabled={!canBackStep}
+            title="Step back to previous instruction"
+          >
+            ◀ Back
+          </button>
+
           {/* Step */}
           <button className="ctrl-btn primary" onClick={onStep} disabled={blocked}>
             <span>▶</span> Step
-          </button>
-
-          <div className="ctrl-separator" />
-
-          {/* Run × N */}
-          <input
-            className="ctrl-n-input"
-            type="number"
-            value={runN}
-            min={1}
-            max={100000}
-            onChange={(e) => setRunN(e.target.value)}
-          />
-          <button className="ctrl-btn run-n" onClick={() => onRunN(parseInt(runN) || 10)} disabled={blocked}>
-            Run ×{runN}
           </button>
 
           <div className="ctrl-separator" />
@@ -65,8 +63,19 @@ export function ControlsCell({ isHalted, animating, isRunning, cpuState, onStep,
             ↺ Reset
           </button>
 
+          <div className="ctrl-separator" />
+
+          {/* Assembler */}
+          <button
+            className="ctrl-btn run-n"
+            onClick={onOpenAssembler}
+            title="Open inline assembler"
+          >
+            ✎ ASM
+          </button>
+
           <span className="ctrl-hint">
-            <kbd>Space</kbd> to step
+            <kbd>Space</kbd> step
           </span>
         </div>
       </div>

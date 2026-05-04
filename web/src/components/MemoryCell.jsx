@@ -5,13 +5,14 @@ function toHexByte(n) { return (n & 0xff).toString(16).toUpperCase().padStart(2,
 
 const BYTES_PER_ROW = 8;
 
-export function MemoryCell({ memBytes, memStart, pc }) {
+export function MemoryCell({ memBytes, memStart, pc, highlightMemRow, breakpoints, onToggleBreakpoint, symbolMap }) {
   const rows = [];
   for (let i = 0; i < memBytes.length; i += BYTES_PER_ROW) {
     rows.push(memStart + i);
   }
 
   const isPC = (addr) => addr >= pc && addr < pc + 4;
+  const bpSet = breakpoints ?? new Set();
 
   return (
     <div className="cell memory-cell">
@@ -26,12 +27,22 @@ export function MemoryCell({ memBytes, memStart, pc }) {
             for (let i = 0; i < BYTES_PER_ROW; i++) {
               bytes.push(memBytes[rowIdx * BYTES_PER_ROW + i] ?? 0);
             }
-            const hasPC = bytes.some((_, i) => isPC(rowAddr + i));
-            const ascii = bytes.map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : '·')).join('');
+            const hasPC     = bytes.some((_, i) => isPC(rowAddr + i));
+            const ascii     = bytes.map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : '·')).join('');
+            const isChanged = rowAddr === highlightMemRow;
+            const hasBp     = bpSet.has(rowAddr >>> 0);
+            const symName   = symbolMap?.get(rowAddr >>> 0) ?? null;
 
             return (
-              <div key={rowAddr} className={`hex-row ${hasPC ? 'current-pc' : ''}`}>
+              <div
+                key={rowAddr}
+                className={`hex-row ${hasPC ? 'current-pc' : ''} ${isChanged ? 'mem-changed' : ''} ${hasBp ? 'breakpoint' : ''}`}
+                title={hasBp ? 'Click to remove breakpoint' : 'Click to set breakpoint'}
+                onClick={() => onToggleBreakpoint?.(rowAddr)}
+              >
+                <span className="hex-bp-dot">{hasBp ? '●' : '○'}</span>
                 <span className="hex-addr">{toHex(rowAddr)}</span>
+                {symName && <span className="hex-sym">{symName}</span>}
                 <div className="hex-bytes">
                   {bytes.map((b, i) => (
                     <span key={i}>
