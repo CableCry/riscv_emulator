@@ -1,3 +1,5 @@
+const base = import.meta.env.BASE_URL; // '/' in dev, '/riscv_emulator/' on Pages
+
 export const DEMOS = [
   // ── Arithmetic (RV32I) ────────────────────────────────────────────────────
   {
@@ -6,7 +8,7 @@ export const DEMOS = [
     tag: 'arithmetic',
     description: 'Declares two integers (15 and 20), adds them, and returns the result.',
     source: `int main() {\n  int x = 15, y = 20;\n  return x + y;  // → 35\n}`,
-    file: '/demos/add_two_nums.elf',
+    file: `${base}demos/add_two_nums.elf`,
     expected: 35,
   },
   {
@@ -15,7 +17,7 @@ export const DEMOS = [
     tag: 'arithmetic',
     description: 'Declares two integers (20 and 15), subtracts them, and returns the result.',
     source: `int main() {\n  int x = 20, y = 15;\n  return x - y;  // → 5\n}`,
-    file: '/demos/subtract_two_nums.elf',
+    file: `${base}demos/subtract_two_nums.elf`,
     expected: 5,
   },
   // ── Recursion (RV32I) ─────────────────────────────────────────────────────
@@ -25,7 +27,7 @@ export const DEMOS = [
     tag: 'recursion',
     description: 'Recursively computes the 10th Fibonacci number using tail-recursive calls on the stack.',
     source: `int fib(int a, int b, int n) {\n  if (n == 10) return a;\n  return fib(a+b, a, n+1);\n}\nint main() { return fib(1,0,0); // → 55 }`,
-    file: '/demos/fib.elf',
+    file: `${base}demos/fib.elf`,
     expected: 55,
   },
   // ── RV32M multiply/divide ─────────────────────────────────────────────────
@@ -35,7 +37,7 @@ export const DEMOS = [
     tag: 'rv32m',
     description: 'Multiplies 6 × 7 using the MUL instruction from the RV32M extension.',
     source: `int main() {\n  int a = 6, b = 7;\n  return a * b;  // → 42\n}`,
-    file: '/demos/multiply.elf',
+    file: `${base}demos/multiply.elf`,
     expected: 42,
   },
   {
@@ -44,7 +46,7 @@ export const DEMOS = [
     tag: 'rv32m',
     description: 'Divides 100 ÷ 4 using the DIV instruction from the RV32M extension.',
     source: `int main() {\n  int a = 100, b = 4;\n  return a / b;  // → 25\n}`,
-    file: '/demos/divide.elf',
+    file: `${base}demos/divide.elf`,
     expected: 25,
   },
   {
@@ -53,7 +55,7 @@ export const DEMOS = [
     tag: 'rv32m',
     description: 'Recursively computes 8! using MUL at each stack frame — combines recursion and the M extension.',
     source: `int fact(int n) {\n  if (n <= 1) return 1;\n  return n * fact(n-1);\n}\nint main() { return fact(8); // → 40320 }`,
-    file: '/demos/factorial.elf',
+    file: `${base}demos/factorial.elf`,
     expected: 40320,
   },
   {
@@ -62,7 +64,7 @@ export const DEMOS = [
     tag: 'rv32m',
     description: "Computes the greatest common divisor of 252 and 105 using Euclid's algorithm with the REM instruction.",
     source: `int gcd(int a, int b) {\n  while (b) { int t=b; b=a%b; a=t; }\n  return a;\n}\nint main() { return gcd(252,105); // → 21 }`,
-    file: '/demos/gcd.elf',
+    file: `${base}demos/gcd.elf`,
     expected: 21,
   },
 ];

@@ -7,11 +7,12 @@ const HISTORY_MAX = 64;
 let modulePromise = null;
 function loadModule() {
   if (modulePromise) return modulePromise;
+  const base = import.meta.env.BASE_URL; // '/' in dev, '/riscv_emulator/' on Pages
   modulePromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = '/emulator.js';
+    script.src = `${base}emulator.js`;
     script.onload = () => {
-      window.createEmulator({ locateFile: (f) => `/${f}` })
+      window.createEmulator({ locateFile: (f) => `${base}${f}` })
         .then(resolve)
         .catch(reject);
     };
